@@ -35,9 +35,10 @@ fun CityListScreen(
 ) {
     val listState = rememberLazyListState()
 
-    var draggedIndex by remember { mutableIntStateOf(-1) }
+    var draggingId by remember { mutableStateOf<String?>(null) }
+    var draggingIndex by remember { mutableIntStateOf(-1) }
+    var dragStartIndex by remember { mutableIntStateOf(-1) }
     var dragOffset by remember { mutableFloatStateOf(0f) }
-    var overIndex by remember { mutableIntStateOf(-1) }
     var currentList by remember(weatherList) { mutableStateOf(weatherList) }
 
     LaunchedEffect(weatherList) {
@@ -98,7 +99,7 @@ fun CityListScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             itemsIndexed(currentList, key = { _, w -> w.city.id }) { index, weather ->
-                val isDragged = draggedIndex == index
+                val isDragged = draggingId == weather.city.id
                 CityRow(
                     weather = weather,
                     useCelsius = useCelsius,
@@ -112,37 +113,50 @@ fun CityListScreen(
                                 .graphicsLayer { translationY = dragOffset }
                             else Modifier
                         )
-                        .pointerInput(index) {
+                        .pointerInput(weather.city.id) {
+                            val rowHeight = 64.5f * density
                             detectDragGesturesAfterLongPress(
                                 onDragStart = {
-                                    draggedIndex = index
-                                    overIndex = index
+                                    val start = currentList.indexOfFirst { it.city.id == weather.city.id }
+                                    draggingId = weather.city.id
+                                    draggingIndex = start
+                                    dragStartIndex = start
                                     dragOffset = 0f
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
                                     dragOffset += dragAmount.y
-                                    val rowHeight = 65f * density
-                                    val targetIndex = (index + (dragOffset / rowHeight).toInt())
-                                        .coerceIn(0, currentList.size - 1)
-                                    if (targetIndex != overIndex) {
+                                    // 整行滞回：偏移超过一整行才换位，避免边界抖动
+                                    while (dragOffset > rowHeight && draggingIndex < currentList.size - 1) {
                                         val list = currentList.toMutableList()
-                                        val item = list.removeAt(overIndex)
-                                        list.add(targetIndex, item)
+                                        val item = list.removeAt(draggingIndex)
+                                        list.add(draggingIndex + 1, item)
                                         currentList = list
-                                        dragOffset += (overIndex - targetIndex) * rowHeight
-                                        overIndex = targetIndex
+                                        dragOffset -= rowHeight
+                                        draggingIndex += 1
+                                    }
+                                    while (dragOffset < -rowHeight && draggingIndex > 0) {
+                                        val list = currentList.toMutableList()
+                                        val item = list.removeAt(draggingIndex)
+                                        list.add(draggingIndex - 1, item)
+                                        currentList = list
+                                        dragOffset += rowHeight
+                                        draggingIndex -= 1
                                     }
                                 },
                                 onDragEnd = {
-                                    if (draggedIndex != overIndex) {
-                                        onReorder(draggedIndex, overIndex)
+                                    if (dragStartIndex >= 0 && dragStartIndex != draggingIndex) {
+                                        onReorder(dragStartIndex, draggingIndex)
                                     }
-                                    draggedIndex = -1
+                                    draggingId = null
+                                    draggingIndex = -1
+                                    dragStartIndex = -1
                                     dragOffset = 0f
                                 },
                                 onDragCancel = {
-                                    draggedIndex = -1
+                                    draggingId = null
+                                    draggingIndex = -1
+                                    dragStartIndex = -1
                                     dragOffset = 0f
                                     currentList = weatherList
                                 }
