@@ -1,7 +1,9 @@
 package com.ww.smartweather.ui.screen
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -174,10 +176,21 @@ private fun WeatherPage(
                         modifier = Modifier.padding(end = 6.dp)
                     )
                 }
+                val refreshRotation = remember { Animatable(0f) }
+                val refreshScope = rememberCoroutineScope()
                 Box(
                     modifier = Modifier
                         .size(47.dp)
-                        .clickable(enabled = !isRefreshing) { onRefresh() },
+                        .clickable(enabled = !isRefreshing) {
+                            refreshScope.launch {
+                                refreshRotation.snapTo(0f)
+                                refreshRotation.animateTo(
+                                    targetValue = 720f,
+                                    animationSpec = tween(durationMillis = 1600, easing = LinearEasing)
+                                )
+                            }
+                            onRefresh()
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
@@ -188,7 +201,9 @@ private fun WeatherPage(
                     Image(
                         painter = painterResource(R.drawable.button_refresh_icon_sunny),
                         contentDescription = null,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier
+                            .size(80.dp)
+                            .graphicsLayer { rotationZ = refreshRotation.value },
                         alpha = if (isRefreshing) 0.4f else 1f
                     )
                 }
