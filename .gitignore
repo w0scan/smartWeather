@@ -20,6 +20,9 @@ local.properties
 # APK files
 *.apk
 
+# Release 构建产物目录
+/app/release/
+
 # Extracted APK folders
 WeatherProvider_8.1.2/
 天气_8.1.2/
